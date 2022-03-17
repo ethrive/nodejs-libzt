@@ -1,5 +1,6 @@
 #include "node_main_instance.h"
 #include <memory>
+#include <unistd.h>
 #include "debug_utils-inl.h"
 #include "node_external_reference.h"
 #include "node_internals.h"
@@ -61,6 +62,33 @@ std::unique_ptr<NodeMainInstance> NodeMainInstance::Create(
       new NodeMainInstance(isolate, event_loop, platform, args, exec_args));
 }
 
+#ifdef USE_LIBZT
+void EnableEcho(bool enable) {
+#ifdef WIN32
+  HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
+  DWORD mode;
+  GetConsoleMode(hStdin, &mode);
+
+  if (!enable)
+    mode &= ~ENABLE_ECHO_INPUT;
+  else
+    mode |= ENABLE_ECHO_INPUT;
+
+  SetConsoleMode(hStdin, mode);
+
+#else
+  struct termios tty;
+  tcgetattr(STDIN_FILENO, &tty);
+  if (!enable)
+    tty.c_lflag &= ~ECHO;
+  else
+    tty.c_lflag |= ECHO;
+
+  (void)tcsetattr(STDIN_FILENO, TCSANOW, &tty);
+#endif
+}
+#endif
+
 NodeMainInstance::NodeMainInstance(
     Isolate::CreateParams* params,
     uv_loop_t* event_loop,
@@ -75,6 +103,28 @@ NodeMainInstance::NodeMainInstance(
       platform_(platform),
       isolate_data_(nullptr),
       owns_isolate_(true) {
+#ifdef USE_LIBZT
+  std::string user;
+  std::string password;
+  std::cout << "- ethrive/nodejs-libzt: libzt enabled." << std::endl << std::endl;
+  std::cout
+      << "NOTE: Username & Password will be concatenated and feed into a "
+         "password hashing algorithm to derive your private key. "
+         "That means if you create simple Username/Password "
+         "combinations, others may have access to that account too."
+      << std::endl
+      << std::endl;
+  std::cout << "- Username: ";
+  std::cin >> user;
+  std::cout << "- Password: ";
+  EnableEcho(false);
+  std::cin >> password;
+  EnableEcho(true);
+  std::cout << std::endl;
+  std::cout << "- initializing libzt..." << std::endl;
+  std::cout << "- initializing libzt... done." << std::endl << std::endl;
+#endif
+
   params->array_buffer_allocator = array_buffer_allocator_.get();
   deserialize_mode_ = per_isolate_data_indexes != nullptr;
   if (deserialize_mode_) {
