@@ -728,6 +728,13 @@ parser.add_argument('--shared',
     help='compile shared library for embedding node in another project. ' +
          '(This mode is not officially supported for regular applications)')
 
+parser.add_argument('--libzt',
+                    action='store_true',
+                    dest='libzt',
+                    default=None,
+                    help='compile with libzt support. ' +
+                         '(This mode is not officially supported for regular applications)')
+
 parser.add_argument('--without-v8-platform',
     action='store_true',
     dest='without_v8_platform',
@@ -1444,6 +1451,12 @@ def configure_v8(o):
     raise Exception('--v8-enable-hugepage is supported only on linux.')
   o['variables']['v8_enable_hugepage'] = 1 if options.v8_enable_hugepage else 0
 
+def configure_libzt(o):
+    variables = o['variables']
+    variables['node_use_libzt'] = b(options.libzt)
+    if options.libzt:
+        o['defines'] += ['USE_LIBZT']
+
 def configure_openssl(o):
   variables = o['variables']
   variables['node_use_openssl'] = b(not options.without_ssl)
@@ -1957,6 +1970,7 @@ configure_intl(output)
 configure_static(output)
 configure_inspector(output)
 configure_section_file(output)
+configure_libzt(output)
 
 # Forward OSS-Fuzz settings
 output['variables']['ossfuzz'] = b(options.ossfuzz)
